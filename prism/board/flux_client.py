@@ -9,6 +9,7 @@ import httpx
 from prism.config import load_global_config
 
 _RETRY_DELAYS = (0, 1, 2, 4)
+_MAX_TOTAL_SECONDS = 30
 
 
 @dataclass
@@ -43,8 +44,11 @@ def _flux_url() -> str:
 def _request(method: str, path: str, **kwargs) -> dict:
     url = f"{_flux_url()}{path}"
     last_exc: Exception | None = None
+    start = time.monotonic()
     for delay in _RETRY_DELAYS:
         if delay:
+            if time.monotonic() - start + delay > _MAX_TOTAL_SECONDS:
+                break
             time.sleep(delay)
         try:
             resp = httpx.request(method, url, timeout=10, **kwargs)
@@ -111,6 +115,11 @@ class FluxClient:
         data = _request("GET", f"/api/projects/{project_id}/epics")
         items = data if isinstance(data, list) else data.get("epics", [])
         return [_to_epic(e, project_id) for e in items]
+
+    def update_task(self, task_id: str, **fields) -> Task:
+        return _to_task(
+            _request("PATCH", f"/api/tasks/{task_id}", json=fields),
+        )
 
     def add_webhook(self, url: str, events: list[str]) -> Webhook:
         data = _request("POST", "/api/webhooks", json={"url": url, "events": events})

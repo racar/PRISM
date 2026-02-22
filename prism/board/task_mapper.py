@@ -77,7 +77,7 @@ class ParsedEpic:
 
 
 def parse_tasks_md(path: Path) -> list[ParsedEpic]:
-    return _parse_epics(path.read_text())
+    return _parse_epics(path.read_text(encoding="utf-8"))
 
 
 def _parse_epics(content: str) -> list[ParsedEpic]:
@@ -165,5 +165,5 @@ def generate_current_task_md(task, project_dir: Path) -> Path:
     )
     output = project_dir / ".prism" / "current-task.md"
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(content)
+    output.write_text(content, encoding="utf-8")
     return output

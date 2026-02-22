@@ -70,5 +70,5 @@ memory:
   auto_commit: true
 
 flux:
-  url: "http://localhost:3000"
+  url: "http://localhost:9000"
   mcp_command: "docker run -i --rm -v flux-data:/app/packages/data flux-mcp"

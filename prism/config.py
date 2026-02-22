@@ -38,7 +38,7 @@ class MemoryConfig(BaseModel):
 
 
 class FluxConfig(BaseModel):
-    url: str = "http://localhost:3000"
+    url: str = "http://localhost:9000"
     mcp_command: str = "docker run -i --rm -v flux-data:/app/packages/data flux-mcp"
 
 

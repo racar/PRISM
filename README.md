@@ -7,7 +7,7 @@ Agent-agnostic orchestration system with cross-project skill memory. PRISM sits 
 │                       HUMAN                             │
 │  Reviews Flux board → Approves tasks → Moves to Ready   │
 └──────────────────────┬──────────────────────────────────┘
-                       │ browser localhost:3000
+                       │ browser localhost:9000
 ┌──────────────────────▼──────────────────────────────────┐
 │                  FLUX BOARD (Docker)                    │
 │  Backlog → Ready → In Progress → Review → Done          │
@@ -98,7 +98,7 @@ prism inject
     → .prism/injected-context.md generated with relevant skills
 
 prism board setup
-    → Flux starts on localhost:3000, MCP registered, webhook configured
+    → Flux starts on localhost:9000, MCP registered, webhook configured
 
 prism board listen --daemon
     → Webhook listener on :8765, file watcher on .specify/specs/
@@ -351,7 +351,7 @@ prism board setup
 prism board setup --project-id <existing-flux-id>
 ```
 
-Requires Docker running. Starts Flux on `localhost:3000`.
+Requires Docker running. Starts Flux on `localhost:9000`.
 
 ---
 

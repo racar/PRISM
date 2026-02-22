@@ -15,6 +15,9 @@ from prism.board.task_mapper import (
     generate_current_task_md,
 )
 from prism.board.webhook_listener import app, set_project_dir
+from prism.cli.sync import (
+    _task_content_hash, _task_changed, _normalize_mapping, _sync_epics,
+)
 from prism.memory.schemas import Skill, SkillFrontmatter
 from prism.memory.store import SkillStore, save_skill_to_file
 
@@ -239,11 +242,11 @@ def test_sync_maps_tasks_without_duplicates(sample_tasks_md, tmp_path):
         MagicMock(id="t-1"), MagicMock(id="t-2"),
     ]
 
-    created = _sync_epics(epics, "proj-1", mock_client, mapping, dry_run=False)
-    assert created == 2
+    counts = _sync_epics(epics, "proj-1", mock_client, mapping, dry_run=False)
+    assert counts["created"] == 2
 
-    created_again = _sync_epics(epics, "proj-1", mock_client, mapping, dry_run=False)
-    assert created_again == 0
+    counts_again = _sync_epics(epics, "proj-1", mock_client, mapping, dry_run=False)
+    assert counts_again["created"] == 0
 
 
 # ── 2.5 Webhook listener ──────────────────────────────────────────────────────
@@ -329,3 +332,65 @@ def test_current_task_md_has_all_sections(tmp_path):
     assert "## PRISM Context" in content
     assert "## Definition of Done" in content
     assert "## Output" in content
+
+
+# ── 2.7 update_task / content-hash / normalize ────────────────────────────────
+
+def test_flux_client_update_task(flux_client):
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {
+        "id": "t-1", "title": "Updated", "status": "todo", "description": "new body",
+    }
+    mock_resp.raise_for_status = MagicMock()
+    with patch("httpx.request", return_value=mock_resp):
+        task = flux_client.update_task("t-1", title="Updated", description="new body")
+    assert task.title == "Updated"
+    assert task.description == "new body"
+
+
+def test_task_content_hash_deterministic():
+    task = ParsedTask("Login", "Build login", ["Returns 200", "Returns 401"])
+    h1 = _task_content_hash(task)
+    h2 = _task_content_hash(task)
+    assert h1 == h2
+    assert len(h1) == 16
+
+
+def test_task_content_hash_changes_with_content():
+    t1 = ParsedTask("Login", "Build login", ["Returns 200"])
+    t2 = ParsedTask("Login", "Build login v2", ["Returns 200"])
+    assert _task_content_hash(t1) != _task_content_hash(t2)
+
+
+def test_task_changed_detects_difference():
+    task = ParsedTask("Login", "Build login", ["Returns 200"])
+    mapping = {"Login": {"flux_id": "t-1", "content_hash": "wrong"}}
+    assert _task_changed(task, mapping) is True
+
+
+def test_task_changed_returns_false_when_same():
+    task = ParsedTask("Login", "Build login", ["Returns 200"])
+    h = _task_content_hash(task)
+    mapping = {"Login": {"flux_id": "t-1", "content_hash": h}}
+    assert _task_changed(task, mapping) is False
+
+
+def test_normalize_mapping_migrates_strings():
+    mapping = {"Login": "t-1", "__epic__Auth": "e-1"}
+    _normalize_mapping(mapping)
+    assert mapping["Login"] == {"flux_id": "t-1", "content_hash": ""}
+    assert mapping["__epic__Auth"] == "e-1"
+
+
+def test_sync_epics_returns_dict_counts(sample_tasks_md):
+    epics = _parse_epics(sample_tasks_md.read_text())
+    mapping: dict = {}
+    mock_client = MagicMock()
+    mock_client.create_epic.return_value = MagicMock(id="e-1")
+    mock_client.create_task.side_effect = [
+        MagicMock(id="t-1"), MagicMock(id="t-2"),
+    ]
+    counts = _sync_epics(epics, "proj-1", mock_client, mapping, dry_run=False)
+    assert isinstance(counts, dict)
+    assert counts["created"] == 2
+    assert counts["updated"] == 0

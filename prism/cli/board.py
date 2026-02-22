@@ -9,6 +9,8 @@ from pathlib import Path
 import click
 from rich.console import Console
 
+import yaml
+
 from prism.config import load_global_config
 from prism.project import check_docker
 
@@ -32,8 +34,10 @@ def setup(project_id: str, project_dir: str) -> None:
         raise click.ClickException("Docker is not installed or not running.")
     _start_flux_container()
     _register_mcp()
-    _configure_webhook(Path(project_dir).resolve())
-    console.print("[green]✅ Flux board ready at http://localhost:3000[/green]")
+    proj_dir = Path(project_dir).resolve()
+    _configure_webhook(proj_dir)
+    _ensure_flux_project(proj_dir, project_id)
+    console.print("[green]✅ Flux board ready at http://localhost:9000[/green]")
 
 
 @board.command(name="listen")
@@ -79,25 +83,88 @@ def status(project_dir: str) -> None:
     state = f"[green]running (PID {pid})[/green]" if running else "[red]dead (stale PID)[/red]"
     console.print(f"Listener: {state}")
     flux_url = load_global_config().flux.url
-    console.print(f"Webhook endpoint: {flux_url.replace('3000', '8765')}/webhook/flux")
+    console.print(f"Webhook endpoint: {flux_url.replace('9000', '8765')}/webhook/flux")
     if _LOG_FILE.exists():
         console.print(f"Log: {_LOG_FILE}")
 
 
-def _start_flux_container() -> None:
-    cfg = load_global_config().flux
-    existing = subprocess.run(
-        ["docker", "inspect", "flux-web"], capture_output=True
-    ).returncode == 0
-    if existing:
-        console.print("[dim]Flux container already running[/dim]")
+def _ensure_flux_project(proj_dir: Path, project_id: str) -> None:
+    if project_id:
+        _save_flux_project_id(proj_dir, project_id)
         return
-    cmd = ["docker", "run", "-d", "-p", "3000:3000",
-           "-v", "flux-data:/app/packages/data", "--name", "flux-web",
-           "flux-mcp", "node", "packages/server/dist/index.js"]
+    cfg = load_global_config()
+    existing = cfg.flux.url
+    proj_cfg_path = proj_dir / ".prism" / "project.yaml"
+    if proj_cfg_path.exists():
+        data = yaml.safe_load(
+            proj_cfg_path.read_text(encoding="utf-8"),
+        ) or {}
+        if data.get("flux_project_id"):
+            return
+    name = proj_dir.name
+    _create_and_save_project(proj_dir, name)
+
+
+def _create_and_save_project(proj_dir: Path, name: str) -> None:
+    from prism.board.flux_client import FluxClient
+    client = FluxClient()
+    if not client.healthy():
+        console.print("[yellow]⚠  Flux not reachable — skipping project creation[/yellow]")
+        return
+    result = client.create_project(name)
+    pid = result.get("id", "")
+    _save_flux_project_id(proj_dir, pid)
+    console.print(f"[green]✅ Flux project '{name}' created ({pid})[/green]")
+
+
+def _save_flux_project_id(proj_dir: Path, project_id: str) -> None:
+    yaml_path = proj_dir / ".prism" / "project.yaml"
+    yaml_path.parent.mkdir(parents=True, exist_ok=True)
+    data = (
+        yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+        if yaml_path.exists()
+        else {}
+    ) or {}
+    data["flux_project_id"] = project_id
+    yaml_path.write_text(
+        yaml.dump(data, default_flow_style=False), encoding="utf-8",
+    )
+
+
+def _validate_docker_image(image: str) -> bool:
+    result = subprocess.run(
+        ["docker", "image", "inspect", image],
+        capture_output=True,
+    )
+    return result.returncode == 0
+
+
+def _flux_container_exists() -> bool:
+    return subprocess.run(
+        ["docker", "inspect", "flux-web"], capture_output=True,
+    ).returncode == 0
+
+
+def _run_flux_container() -> None:
+    cmd = [
+        "docker", "run", "-d", "-p", "9000:3000",
+        "-v", "flux-data:/app/packages/data", "--name", "flux-web",
+        "flux-mcp", "node", "packages/server/dist/index.js",
+    ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         raise click.ClickException(f"Failed to start Flux: {result.stderr}")
+
+
+def _start_flux_container() -> None:
+    if _flux_container_exists():
+        console.print("[dim]Flux container already running[/dim]")
+        return
+    if not _validate_docker_image("flux-mcp"):
+        raise click.ClickException(
+            "Docker image 'flux-mcp' not found. Build or pull it first."
+        )
+    _run_flux_container()
     console.print("[green]✅ Flux container started[/green]")
 
 
