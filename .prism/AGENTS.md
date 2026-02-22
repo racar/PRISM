@@ -58,3 +58,44 @@ Grep("pattern", path="src/")
 ```
 
 No need to ask for confirmation - proceed with reading to understand the codebase.
+
+## Auto-Write Configuration (Create & Edit Files)
+
+All PRISM agents have **AUTOMATIC PERMISSION** to create and edit files in this project. You do NOT need to ask for permission to:
+
+- Create new source code files
+- Edit existing source code files
+- Update configuration files
+- Modify documentation files
+- Create and update test files
+- Write to PRISM configuration files
+
+## Protected Files (Require Explicit Permission for Writing)
+
+The following files/directories ALWAYS require explicit user permission before creating or editing:
+
+- Environment files (.env*, *.key, *.pem, *.p12)
+- Secrets and credentials (secrets/**, credentials/**, *.password, *.secret)
+- SSH keys (.ssh/**)
+- AWS credentials (.aws/**)
+- Large directories (node_modules/**, .git/**)
+- Binary files and build outputs
+
+## How to Create and Edit Files
+
+Simply use the available tools to write files when needed:
+
+```
+Write("path/to/new_file.py", content="...")
+Edit("path/to/existing_file.py", oldString="...", newString="...")
+Edit("path/to/file.py", oldString="...", newString="...", replaceAll=True)
+```
+
+No need to ask for confirmation - proceed with creating and editing to implement changes, add features, fix bugs, and update documentation.
+
+**Important Guidelines:**
+- Create files in appropriate locations following project structure
+- Use existing code patterns and conventions
+- Add final newlines to all new files
+- Keep methods under 10 lines when possible
+- Follow the project's domain vocabulary for naming

@@ -55,11 +55,11 @@ Separate routers by domain, use dependency injection for shared resources (db se
 
 ## File Access Permissions
 
-✅ **AUTOMATIC READ PERMISSION GRANTED**
+### ✅ Automatic Read Permission
 
 You have automatic permission to read files in this project WITHOUT asking for explicit confirmation. Simply use the file reading tools (Read, Glob, Grep) directly when you need to understand the codebase.
 
-### Automatically Allowed Files:
+**Automatically Allowed Files:**
 - Source code (*.py, *.js, *.ts, *.tsx, *.jsx, etc.)
 - Configuration files (*.json, *.yaml, *.yml, *.toml, .env.example)
 - Documentation (*.md, *.txt)
@@ -68,17 +68,52 @@ You have automatic permission to read files in this project WITHOUT asking for e
 - PRISM config (.prism/**/*)
 - Test files (tests/**/*, specs/**/*)
 
-### Protected Files (Require Explicit Permission):
+**Protected Files (Require Explicit Permission):**
 - Secrets (.env*, *.key, *.pem, credentials/**/*)
 - Private keys (.ssh/**/*)
 - Large directories (node_modules/**, .git/**, dist/**, build/**)
 - Binary files and build outputs
 
-### Usage:
+**Usage:**
 ```
 Read("src/main.py")
 Glob("src/**/*.ts")
 Grep("function", path="src/")
 ```
 
-Proceed with confidence when reading files to understand and work with the codebase.
+### ✅ Automatic Write Permission (Create & Edit)
+
+You have automatic permission to create and edit files in this project WITHOUT asking for explicit confirmation. Simply use the file writing tools (Write, Edit) directly when you need to implement changes.
+
+**Automatically Allowed:**
+- Create new source code files
+- Edit existing source code files
+- Update configuration files
+- Modify documentation files
+- Create and update test files
+- Write to PRISM configuration files
+
+**Protected (Require Explicit Permission):**
+- Environment files (.env*, *.key, *.pem)
+- Secrets and credentials directories
+- SSH keys and AWS credentials
+- Large dependency directories
+- Binary files
+
+**Usage:**
+```
+Write("src/new_file.py", content="...")
+Edit("src/existing_file.py", oldString="...", newString="...")
+Edit("path/to/file.py", oldString="...", newString="...", replaceAll=True)
+```
+
+**Guidelines for Writing:**
+- Create files in appropriate locations following project structure
+- Use existing code patterns and conventions
+- Add final newlines to all new files
+- Keep methods under 10 lines when possible
+- Follow the project's domain vocabulary for naming
+- Prefer editing existing files over creating new ones unless necessary
+- Use `replaceAll=True` only when intentionally changing all occurrences
+
+Proceed with confidence when reading and writing files to understand and work with the codebase.

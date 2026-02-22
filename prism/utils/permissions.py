@@ -168,3 +168,149 @@ def validate_path_for_auto_read(path: str) -> dict:
             p for p in protected_paths if _matches_pattern(path, p)
         ],
     }
+
+
+def can_write_file(
+    file_path: str | Path, role: Optional[str] = None, explicit_permission: bool = False
+) -> tuple[bool, str]:
+    """Check if an agent can write (create/edit) a file automatically.
+
+    Args:
+        file_path: Path to the file to check
+        role: Agent role (architect, developer, reviewer, memory, optimizer)
+        explicit_permission: Whether user has explicitly granted permission
+
+    Returns:
+        Tuple of (can_write, reason)
+        - can_write: True if file can be written automatically
+        - reason: Explanation of the decision
+    """
+    path = Path(file_path)
+    path_str = str(path)
+
+    # If explicit permission granted, always allow
+    if explicit_permission:
+        return True, "Explicit permission granted"
+
+    # Load configuration
+    config = load_global_config()
+    perm_config = getattr(config, "permissions", None)
+
+    if not perm_config:
+        # No permissions config, default to allowing writes
+        return True, "No permissions configured (default allow)"
+
+    write_config = perm_config.get("write_permissions", {})
+
+    # Check role-specific permissions
+    auto_write_enabled = write_config.get("auto_write_enabled", True)
+    auto_write_paths = write_config.get("auto_write_paths", ["*"])
+    protected_write_paths = write_config.get("protected_write_paths", [])
+    max_size = write_config.get("max_auto_write_size", 5242880)
+
+    # Apply role overrides if specified
+    if role and "roles" in write_config:
+        role_config = write_config["roles"].get(role, {})
+        if "auto_write_enabled" in role_config:
+            auto_write_enabled = role_config["auto_write_enabled"]
+
+    # Check if auto-write is enabled for this role
+    if not auto_write_enabled:
+        return False, f"Auto-write disabled for role: {role}"
+
+    # Check file size for existing files
+    try:
+        if path.exists() and path.stat().st_size > max_size:
+            return False, f"File exceeds max auto-write size ({max_size} bytes)"
+    except (OSError, IOError):
+        pass  # Can't check size, continue with other checks
+
+    # Check if path is protected (protected paths always require explicit permission)
+    if _is_path_protected(path_str, protected_write_paths):
+        return False, "Path is protected - explicit permission required"
+
+    # Check if path is in allowed list
+    if _is_path_allowed(path_str, auto_write_paths):
+        return True, "Path in auto-write allow list"
+
+    # Default: require explicit permission
+    return False, "Path not in auto-write allow list"
+
+
+def get_write_permissions_summary(role: Optional[str] = None) -> dict:
+    """Get a summary of current write permissions configuration.
+
+    Args:
+        role: Optional role to get specific permissions for
+
+    Returns:
+        Dictionary with write permission settings
+    """
+    config = load_global_config()
+    perm_config = getattr(config, "permissions", {})
+    write_config = perm_config.get("write_permissions", {})
+
+    summary = {
+        "auto_write_enabled": write_config.get("auto_write_enabled", True),
+        "auto_write_paths_count": len(write_config.get("auto_write_paths", [])),
+        "protected_write_paths_count": len(
+            write_config.get("protected_write_paths", [])
+        ),
+        "max_auto_write_size": write_config.get("max_auto_write_size", 5242880),
+    }
+
+    if role and "roles" in write_config:
+        role_config = write_config["roles"].get(role)
+        if role_config:
+            summary["role"] = role
+            summary["role_auto_write"] = role_config.get(
+                "auto_write_enabled", summary["auto_write_enabled"]
+            )
+
+    return summary
+
+
+def validate_path_for_auto_write(path: str) -> dict:
+    """Validate a specific path for writing and return detailed info.
+
+    Args:
+        path: File path to validate
+
+    Returns:
+        Dictionary with validation results
+    """
+    config = load_global_config()
+    perm_config = getattr(config, "permissions", {})
+    write_config = perm_config.get("write_permissions", {})
+
+    auto_write_paths = write_config.get("auto_write_paths", [])
+    protected_write_paths = write_config.get("protected_write_paths", [])
+
+    return {
+        "path": path,
+        "is_allowed": _is_path_allowed(path, auto_write_paths),
+        "is_protected": _is_path_protected(path, protected_write_paths),
+        "can_auto_write": _is_path_allowed(path, auto_write_paths)
+        and not _is_path_protected(path, protected_write_paths),
+        "matching_allow_patterns": [
+            p for p in auto_write_paths if _matches_pattern(path, p)
+        ],
+        "matching_protect_patterns": [
+            p for p in protected_write_paths if _matches_pattern(path, p)
+        ],
+    }
+
+
+def get_full_permissions_summary(role: Optional[str] = None) -> dict:
+    """Get a complete summary of all permissions (read and write).
+
+    Args:
+        role: Optional role to get specific permissions for
+
+    Returns:
+        Dictionary with complete permission settings
+    """
+    return {
+        "read": get_permissions_summary(role),
+        "write": get_write_permissions_summary(role),
+    }
