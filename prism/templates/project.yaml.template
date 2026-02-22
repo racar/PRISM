@@ -1,0 +1,7 @@
+name: "{{ project_name }}"
+description: ""
+version: "0.1.0"
+created: "{{ date }}"
+stack: []
+flux_project_id: ""
+agent_roles: {}

@@ -1,0 +1,66 @@
+version: "1.0"
+
+tools:
+  claude_code:
+    command: "claude"
+    context_file: "CLAUDE.md"
+    mcp_support: true
+  opencode:
+    command: "opencode"
+    context_file: "AGENTS.md"
+    mcp_support: true
+  cursor:
+    command: "cursor"
+    context_file: ".cursorrules"
+    mcp_support: false
+  gemini:
+    command: "gemini"
+    context_file: "GEMINI.md"
+    mcp_support: false
+
+models:
+  anthropic:
+    opus: "claude-opus-4-6"
+    sonnet: "claude-sonnet-4-6"
+    haiku: "claude-haiku-4-5-20251001"
+  moonshot:
+    kimi: "kimi-k2"
+
+agent_roles:
+  architect:
+    default:
+      tool: claude_code
+      model: anthropic.opus
+      reason: "Complex planning and architecture decisions"
+    fallback:
+      tool: claude_code
+      model: anthropic.sonnet
+  developer:
+    default:
+      tool: opencode
+      model: moonshot.kimi
+      reason: "Fast implementation with Kimi K2"
+    fallback:
+      tool: claude_code
+      model: anthropic.sonnet
+  reviewer:
+    default:
+      tool: claude_code
+      model: anthropic.sonnet
+  memory:
+    default:
+      tool: claude_code
+      model: anthropic.haiku
+  optimizer:
+    default:
+      tool: claude_code
+      model: anthropic.haiku
+
+memory:
+  global_path: "~/.prism/memory"
+  git_remote: ""
+  auto_commit: true
+
+flux:
+  url: "http://localhost:3000"
+  mcp_command: "docker run -i --rm -v flux-data:/app/packages/data flux-mcp"
