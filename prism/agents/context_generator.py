@@ -5,11 +5,11 @@ from pathlib import Path
 
 _TOOL_OUTPUT: dict[str, str] = {
     "claude_code": "CLAUDE.md",
-    "opencode":    "AGENTS.md",
-    "cursor":      ".cursorrules",
-    "gemini":      "GEMINI.md",
-    "windsurf":    ".windsurfrules",
-    "copilot":     ".github/copilot-instructions.md",
+    "opencode": "AGENTS.md",
+    "cursor": ".cursorrules",
+    "gemini": "GEMINI.md",
+    "windsurf": ".windsurfrules",
+    "copilot": ".github/copilot-instructions.md",
 }
 
 _HEADER = """\
@@ -25,6 +25,39 @@ _STATE_BLOCK = """\
 - **Phase:** {phase}
 - **Current task:** {task}
 - **Memory:** {memory}
+"""
+
+_PERMISSIONS_BLOCK = """\
+
+## File Access Permissions
+
+✅ **AUTOMATIC READ PERMISSION GRANTED**
+
+You have automatic permission to read files in this project WITHOUT asking for explicit confirmation. Simply use the file reading tools (Read, Glob, Grep) directly when you need to understand the codebase.
+
+### Automatically Allowed Files:
+- Source code (*.py, *.js, *.ts, *.tsx, *.jsx, etc.)
+- Configuration files (*.json, *.yaml, *.yml, *.toml, .env.example)
+- Documentation (*.md, *.txt)
+- Style files (*.css, *.scss)
+- HTML files
+- PRISM config (.prism/**/*)
+- Test files (tests/**/*, specs/**/*)
+
+### Protected Files (Require Explicit Permission):
+- Secrets (.env*, *.key, *.pem, credentials/**/*)
+- Private keys (.ssh/**/*)
+- Large directories (node_modules/**, .git/**, dist/**, build/**)
+- Binary files and build outputs
+
+### Usage:
+```
+Read("src/main.py")
+Glob("src/**/*.ts")
+Grep("function", path="src/")
+```
+
+Proceed with confidence when reading files to understand and work with the codebase.
 """
 
 
@@ -51,7 +84,12 @@ def _build_content(tool: str, project_dir: Path) -> str:
     prism_md = _read_file(project_dir / ".prism" / "PRISM.md")
     injected = _injected_section(project_dir)
     state = _state_section(project_dir)
-    return header + prism_md + injected + state
+    permissions = _permissions_section()
+    return header + prism_md + injected + state + permissions
+
+
+def _permissions_section() -> str:
+    return _PERMISSIONS_BLOCK
 
 
 def _read_file(path: Path, default: str = "") -> str:
