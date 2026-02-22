@@ -439,21 +439,113 @@ Generated file includes:
 
 ---
 
-### Fase 3 commands *(coming soon)*
+### `prism start --role <role> [--no-launch]`
 
-| Command | Description |
-|---------|-------------|
-| `prism start --role <role>` | Generate context file and launch agent |
-| `prism resume` | Show project state and suggest next agent |
-| `prism generate-context` | Generate CLAUDE.md / .cursorrules / AGENTS.md |
+Generate context file and launch an agent by role (architect, developer, reviewer, memory, optimizer).
 
-### Fase 4 commands *(coming soon)*
+```bash
+prism start --role architect          # Launch architect agent
+prism start --role developer            # Launch developer agent
+prism start --role architect --no-launch  # Generate context only
+```
 
-| Command | Description |
-|---------|-------------|
-| `prism health` | Token budget and skill status report |
-| `prism optimize [--dry-run] [--auto]` | Compress, deduplicate, detect conflicts |
-| `prism schedule enable/disable` | Weekly automated optimizer cron job |
+Workflow:
+1. Reads `.prism/AGENTS.md` for tool + model assignment
+2. Validates compatibility (capabilities check)
+3. Runs `prism inject` to update context
+4. Generates appropriate context file (CLAUDE.md, .cursorrules, etc.)
+5. Launches the tool (or prints command with `--no-launch`)
+
+---
+
+### `prism resume`
+
+Show project state, board status, memory stats, and suggest the next agent to run.
+
+```bash
+prism resume
+```
+
+Displays:
+- Project overview and active task
+- Memory stats (skill count, index status)
+- Flux board task counts by status
+- Suggested next step (e.g., `prism start --role developer`)
+- Warning if memory has uncommitted changes
+
+---
+
+### `prism generate-context --role <role>`
+
+Generate context file for a specific role without launching.
+
+```bash
+prism generate-context --role architect
+```
+
+Generates tool-specific files:
+- `claude_code` → `CLAUDE.md`
+- `opencode` → `AGENTS.md`
+- `cursor` → `.cursorrules`
+- `gemini` → `GEMINI.md`
+- `windsurf` → `.windsurfrules`
+- `copilot` → `.github/copilot-instructions.md`
+
+---
+
+### `prism health`
+
+Check token budgets and skill health across the project.
+
+```bash
+prism health                          # Full health report
+prism health --project-dir ./other    # Check different project
+```
+
+Reports:
+- Token usage per file vs limits
+- Skill status counts (ACTIVE, NEEDS_REVIEW, CONFLICTED)
+- Total budget utilization
+- Exit codes: 0 (healthy), 1 (warnings), 2 (critical)
+
+---
+
+### `prism optimize [--dry-run] [--auto] [--confirm]`
+
+Run memory optimizer: health check, compression, deduplication, conflict detection, staleness check, pattern promotion, constitution audit.
+
+```bash
+prism optimize --dry-run             # Report only, no changes
+prism optimize --auto                 # Apply safe changes (compression, staleness)
+prism optimize --confirm              # Apply all changes (including merges)
+```
+
+Optimization steps:
+1. **Health Check** — always runs
+2. **Staleness Check** — marks skills unused >90 days as NEEDS_REVIEW (auto-applied)
+3. **Compression** — compresses skills >2000 tokens with Haiku (auto-applied)
+4. **Deduplication** — TF-IDF similarity detection (requires confirmation)
+5. **Conflict Detection** — Haiku-based contradiction detection (creates Flux tasks)
+6. **Pattern Promotion** — suggests gotchas → patterns (requires confirmation)
+7. **Constitution Audit** — checks for contradictory principles (requires confirmation)
+
+---
+
+### `prism schedule enable/disable/status`
+
+Manage weekly automated optimizer cron job.
+
+```bash
+prism schedule enable                 # Install weekly cron job
+prism schedule disable                # Remove cron job
+prism schedule status                 # Check if enabled
+```
+
+Runs `prism optimize --auto` every Sunday at 9:00 AM. Logs to `~/.prism/optimizer.log`.
+
+Supports:
+- **Unix/Linux/macOS**: cron job
+- **Windows**: Task Scheduler
 
 ---
 
@@ -469,7 +561,12 @@ prism/
     │   ├── store.py         ← SkillStore: SQLite FTS5 + embedding cache
     │   ├── injector.py      ← token-budget ranking → injected-context.md
     │   ├── evaluator.py     ← Haiku ADD/UPDATE/NOOP/DELETE evaluation
-    │   └── compressor.py    ← skill compression (Fase 4)
+    │   ├── compressor.py    ← skill compression (Fase 4)
+    │   ├── dedup.py         ← TF-IDF duplicate detection (Fase 4)
+    │   ├── conflict.py      ← LLM-based contradiction detection (Fase 4)
+    │   ├── stale.py         ← staleness checker (Fase 4)
+    │   ├── promoter.py      ← gotcha → pattern promotion (Fase 4)
+    │   └── auditor.py       ← constitution.md audit (Fase 4)
     ├── board/
     │   ├── flux_client.py   ← FluxClient HTTP REST with retry
     │   ├── task_mapper.py   ← tasks.md parser + current-task.md generator
@@ -477,8 +574,12 @@ prism/
     ├── speckit/
     │   ├── augmenter.py     ← tasks.md → tasks.prism.md with PRISM context
     │   └── watcher.py       ← watchdog observer on .specify/specs/
-    ├── agents/              ← AGENTS.md parser + launcher (Fase 3)
-    ├── utils/               ← yaml_utils, git helpers
+    ├── agents/              
+    │   ├── config.py        ← AGENTS.md parser (Fase 3)
+    │   ├── compatibility.py ← tool capability validation (Fase 3)
+    │   ├── context_generator.py  ← CLAUDE.md / .cursorrules generator (Fase 3)
+    │   └── launcher.py      ← agent launcher with fallback (Fase 3)
+    ├── utils/               ← yaml_utils, git helpers, tfidf
     ├── templates/           ← project templates + 7 seed skills
     ├── config.py            ← Pydantic config schemas + loaders
     └── project.py           ← init/attach business logic
@@ -503,7 +604,7 @@ my-project/
 └── src/
 
 ~/.prism/
-├── prism.config.yaml         ← global tool/model/role defaults
+├── prism.config.yaml         ← global tool/model/role defaults + context limits
 ├── listener.log              ← webhook listener output (daemon mode)
 └── memory/
     ├── index.db              ← SQLite FTS5 + embedding cache
@@ -511,7 +612,8 @@ my-project/
     ├── skills/               ← reusable implementation patterns
     ├── gotchas/              ← documented surprises and pitfalls
     ├── decisions/            ← architecture decisions (ADRs)
-    └── episodes/             ← compressed session summaries (Fase 4)
+    └── episodes/
+        └── compressed/       ← skill backups before compression (Fase 4)
 ```
 
 ---
@@ -531,6 +633,8 @@ uv run pytest --cov=prism --cov-report=term-missing
 # Run only one phase's tests
 uv run pytest tests/test_memory.py
 uv run pytest tests/test_board.py
+uv run pytest tests/test_agents.py
+uv run pytest tests/test_optimizer.py
 ```
 
 ## Build Phases
@@ -540,5 +644,5 @@ uv run pytest tests/test_board.py
 | **Fase 0 — Foundation** | ✅ Done | CLI, config system, init/attach, seed skills |
 | **Fase 1 — Memory Layer** | ✅ Done | SQLite FTS5 + embeddings, skill CRUD, inject, Git sync |
 | **Fase 2 — Board Integration** | ✅ Done | Flux REST client, webhook listener, augment/sync, current-task.md |
-| **Fase 3 — Agent Orchestration** | 🔲 Pending | AGENTS.md parser, context generator, launcher |
-| **Fase 4 — Optimizer Agent** | 🔲 Pending | Haiku-powered health checks, compression, dedup |
+| **Fase 3 — Agent Orchestration** | ✅ Done | AGENTS.md parser, context generator, launcher, resume |
+| **Fase 4 — Optimizer Agent** | ✅ Done | Health checks, compression, TF-IDF dedup, conflict detection, staleness checker, scheduler |
