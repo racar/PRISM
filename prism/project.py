@@ -24,7 +24,8 @@ def check_docker() -> bool:
 def run_speckit_init(project_dir: Path) -> bool:
     result = subprocess.run(
         ["specify", "init", str(project_dir)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     return result.returncode == 0
 
@@ -32,7 +33,9 @@ def run_speckit_init(project_dir: Path) -> bool:
 def run_speckit_here(project_dir: Path) -> bool:
     result = subprocess.run(
         ["specify", "init", ".", "--here"],
-        capture_output=True, text=True, cwd=str(project_dir),
+        capture_output=True,
+        text=True,
+        cwd=str(project_dir),
     )
     return result.returncode == 0
 
@@ -75,7 +78,9 @@ def _build_template_ctx(project_name: str, stack: list[str] | None = None) -> di
     }
 
 
-def write_prism_files(prism_dir: Path, project_name: str, stack: list[str] | None = None) -> None:
+def write_prism_files(
+    prism_dir: Path, project_name: str, stack: list[str] | None = None
+) -> None:
     ctx = _build_template_ctx(project_name, stack)
     _write_template(prism_dir / "PRISM.md", "PRISM.md.template", ctx)
     _write_template(prism_dir / "AGENTS.md", "AGENTS.md.template", ctx)
@@ -86,13 +91,15 @@ def seed_skills(memory_dir: Path, force: bool = False) -> int:
     seed_dir = TEMPLATES_DIR / "skills" / "seed"
     skills_dir = memory_dir / "skills"
     skills_dir.mkdir(parents=True, exist_ok=True)
-    count = 0
+    copied_count = 0
     for skill_file in seed_dir.glob("*.md"):
         dest = skills_dir / skill_file.name
         if force or not dest.exists():
             shutil.copy(skill_file, dest)
-            count += 1
-    return count
+            copied_count += 1
+    # Return total count of skills in memory, not just newly copied
+    total_skills = len(list(skills_dir.glob("*.md")))
+    return total_skills
 
 
 def has_speckit(project_dir: Path) -> bool:
@@ -111,7 +118,9 @@ def _try_speckit_init(project_dir: Path) -> None:
     if run_speckit_init(project_dir):
         console.print("[green]✅ Spec-Kit initialized[/green]")
     else:
-        console.print("[yellow]⚠️  specify init failed — continuing without Spec-Kit[/yellow]")
+        console.print(
+            "[yellow]⚠️  specify init failed — continuing without Spec-Kit[/yellow]"
+        )
 
 
 def _try_speckit_here(project_dir: Path) -> None:
@@ -126,7 +135,9 @@ def _try_speckit_here(project_dir: Path) -> None:
 
 def _print_init_success(name: str, seed_count: int) -> None:
     console.print(f"[green]✅ Project '{name}' initialized[/green]")
-    console.print(f"[green]✅ {seed_count} seed skills loaded into ~/.prism/memory/skills/[/green]")
+    console.print(
+        f"[green]✅ {seed_count} seed skills loaded into ~/.prism/memory/skills/[/green]"
+    )
 
 
 def init_project(project_dir: Path, skip_speckit: bool = False) -> None:
