@@ -26,6 +26,16 @@ Agent-agnostic orchestration system with cross-project skill memory. PRISM sits 
 │  skills/ · gotchas/ · decisions/ · episodes/            │
 │  index.db (SQLite FTS5 + embeddings)                   │
 └────────────────────────────────────────────────────────┘
+       │
+       │ Task Done (Webhook)
+       ▼
+┌─────────────────────────────────────────────────────────┐
+│            DOCKER TEST PIPELINE (Fase 5)                │
+│  Isolated containers → Quality Gates → QA Review        │
+│  • Lint, Type Check, Tests, Coverage ≥80%               │
+│  • Web Terminal for QA access                           │
+│  • Auto-PR creation → Human merge                      │
+└────────────────────────────────────────────────────────┘
 ```
 
 ## Stack
@@ -121,7 +131,15 @@ prism sync --project-id <id>
 [Developer agent implements and moves task to Done]
 
 [Webhook fires: done]
-    → Memory capture queued (Fase 3)
+    → Docker Test Pipeline triggered (Fase 5)
+
+[Pipeline executes in isolated container]
+    → Quality Gates (lint, typecheck, tests, coverage ≥80%)
+    → If pass: PR created, ready for QA review
+
+[QA Agent reviews in container via web terminal]
+    → prism review --task TASK-42
+    → prism approve --pr 123  → Human notified for merge
 
 prism memory push
     → Skills committed and pushed to Git remote
@@ -551,6 +569,76 @@ Supports:
 
 ---
 
+### `prism submit-for-qa --task TASK-42`
+
+Submit a completed task for QA review. Creates PR, launches Docker test container, runs quality gates.
+
+```bash
+prism submit-for-qa --task TASK-42
+```
+
+Workflow:
+1. Creates GitHub PR from current changes
+2. Launches isolated Docker container with the PR branch
+3. Runs quality gates: linting → type check → unit tests → coverage (≥80%) → integration tests
+4. If all gates pass: container ready for QA review with web terminal
+5. Updates Flux task with container URL and PR link
+
+---
+
+### `prism review --task TASK-42 [--command "..."]`
+
+QA reviews a test container. Access web terminal or execute commands in the container.
+
+```bash
+prism review --task TASK-42                    # Show container info and web terminal URL
+prism review --task TASK-42 --command "pytest tests/ -v"  # Run tests in container
+```
+
+Useful review commands:
+```bash
+prism review --task TASK-42 --command "cat src/main.py"
+prism review --task TASK-42 --command "git diff main...HEAD"
+prism review --task TASK-42 --command "coverage report"
+```
+
+---
+
+### `prism approve --pr 123 [--message "..."]`
+
+QA approves a PR after review. Notifies human for manual merge.
+
+```bash
+prism approve --pr 123 --message "Code clean, tests pass, LGTM"
+```
+
+Creates approving review on GitHub and notifies human that PR is ready for merge.
+
+---
+
+### `prism reject --pr 123 --reason "..."`
+
+QA rejects a PR with feedback. Returns task to developer.
+
+```bash
+prism reject --pr 123 --reason "Coverage only 60%, needs ≥80%"
+```
+
+Creates "changes requested" review on GitHub. Container kept alive for 30 min for debugging.
+
+---
+
+### `prism shell --container prism-test-TASK-42`
+
+Open interactive shell in a test container.
+
+```bash
+prism shell --task TASK-42          # Using task ID
+prism shell --container prism-test-TASK-42  # Using container name
+```
+
+---
+
 ## Project Structure
 
 ```
@@ -648,3 +736,4 @@ uv run pytest tests/test_optimizer.py
 | **Fase 2 — Board Integration** | ✅ Done | Flux REST client, webhook listener, augment/sync, current-task.md |
 | **Fase 3 — Agent Orchestration** | ✅ Done | AGENTS.md parser, context generator, launcher, resume |
 | **Fase 4 — Optimizer Agent** | ✅ Done | Health checks, compression, TF-IDF dedup, conflict detection, staleness checker, scheduler |
+| **Fase 5 — Docker Test Pipeline** | ✅ Done | Isolated test containers, quality gates, QA workflow, automated PR validation |
