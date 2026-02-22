@@ -30,11 +30,21 @@ class AgentRoleDefault(BaseModel):
     default: AgentRoleAssignment
 
 
+class ContextLimits(BaseModel):
+    prism_md: int = 3000
+    injected_context: int = 4000
+    skill: int = 2000
+    decision: int = 2000
+    gotcha: int = 1000
+    total_budget: int = 8000
+
+
 class MemoryConfig(BaseModel):
     global_path: str = "~/.prism/memory"
     git_remote: str = ""
     auto_commit: bool = True
     embeddings_enabled: bool = False
+    context_limits: ContextLimits = Field(default_factory=ContextLimits)
 
 
 class FluxConfig(BaseModel):
