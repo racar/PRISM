@@ -1,6 +1,7 @@
 import click
 
 from prism import __version__
+from .approve import approve_pr
 from .attach import attach
 from .augment import augment
 from .board import board
@@ -12,11 +13,15 @@ from .inject import inject
 from .init import init
 from .memory import memory
 from .optimize import optimize
+from .reject import reject_pr
 from .resume import resume
+from .review import review
 from .schedule import schedule
 from .seed import seed
+from .shell import shell
 from .skill import skill
 from .start import start
+from .submit import submit_for_qa
 from .sync import sync
 from .task import task
 
@@ -48,3 +53,10 @@ main.add_command(generate_context)
 main.add_command(health)
 main.add_command(optimize)
 main.add_command(schedule)
+
+# Pipeline & QA commands
+main.add_command(submit_for_qa)
+main.add_command(review)
+main.add_command(approve_pr)
+main.add_command(reject_pr)
+main.add_command(shell)
