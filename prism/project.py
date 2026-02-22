@@ -186,7 +186,12 @@ def _print_init_success(name: str, seed_count: int) -> None:
 def init_project(project_dir: Path, skip_speckit: bool = False) -> None:
     ensure_global_config()
     if not skip_speckit:
-        _try_speckit_init(project_dir)
+        if project_dir.exists():
+            console.print(
+                "[yellow]⚠️  Project directory already exists — skipping Spec-Kit init[/yellow]"
+            )
+        else:
+            _try_speckit_init(project_dir)
     project_dir.mkdir(parents=True, exist_ok=True)
     prism_dir = create_prism_dir(project_dir)
     write_prism_files(prism_dir, project_dir.name)
