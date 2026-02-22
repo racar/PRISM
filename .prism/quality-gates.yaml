@@ -1,0 +1,119 @@
+# PRISM Quality Gates Configuration
+# Defines the sequence and criteria for automated testing
+
+quality_gates:
+  enabled: true
+  
+  # Execution mode
+  # "fail-fast": Stop at first failure (recommended)
+  # "continue": Run all gates even if some fail
+  mode: "fail-fast"
+  
+  # Gate sequence - executed in order
+  sequence:
+    - name: linting
+      command: "ruff check ."
+      timeout: 30
+      fail_fast: true
+      description: "Code linting with Ruff"
+      
+    - name: type_checking
+      command: "mypy prism/ --ignore-missing-imports"
+      timeout: 60
+      fail_fast: true
+      description: "Type checking with mypy"
+      
+    - name: unit_tests
+      command: "pytest tests/unit -v --tb=short"
+      timeout: 120
+      fail_fast: true
+      description: "Unit tests"
+      
+    - name: coverage
+      command: "pytest --cov=prism --cov-report=term-missing --cov-fail-under=80"
+      timeout: 120
+      fail_fast: true
+      description: "Test coverage (minimum 80%)"
+      
+    - name: integration_tests
+      command: "pytest tests/integration -v"
+      timeout: 180
+      fail_fast: true
+      description: "Integration tests"
+
+# Coverage requirements
+coverage:
+  minimum_percentage: 80
+  fail_under: true
+  report_format: "term-missing"
+  # Paths to include in coverage
+  include:
+    - "prism/**"
+  # Paths to exclude
+  exclude:
+    - "tests/**"
+    - "prism/templates/**"
+
+# Acceptance criteria validation
+acceptance_criteria:
+  validate_from: ".prism/current-task.md"
+  required_sections:
+    - "Acceptance Criteria"
+    - "Definition of Done"
+  
+  # Checks to perform
+  checks:
+    - name: "acceptance_criteria_present"
+      description: "Task has acceptance criteria defined"
+      
+    - name: "definition_of_done_present"
+      description: "Task has definition of done"
+
+# Test configuration
+test_configuration:
+  unit_tests:
+    path: "tests/unit"
+    pattern: "test_*.py"
+    
+  integration_tests:
+    path: "tests/integration"
+    pattern: "test_*.py"
+    # Services required for integration tests
+    services:
+      - "flux-board"
+      - "postgres"
+
+# Notifications
+notifications:
+  on_success: true
+  on_failure: true
+  
+  # Channels to notify
+  channels:
+    flux:
+      enabled: true
+      # Updates task card in Flux
+      
+    github:
+      enabled: true
+      # Posts PR comment
+      
+  # Message templates
+  templates:
+    success: |
+      ✅ **Quality Gates PASSED**
+      
+      All {passed_gates}/{total_gates} gates passed:
+      {gate_results}
+      
+      Ready for QA review.
+      
+    failure: |
+      ❌ **Quality Gates FAILED**
+      
+      Failed at: {failed_gate}
+      
+      Please fix the issues and retry.
+      
+      Error details:
+      {error_details}

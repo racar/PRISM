@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  prism-test:
+    build:
+      context: ../..
+      dockerfile: prism/docker/Dockerfile.test
+    image: prism-test:latest
+    container_name: ${CONTAINER_NAME:-prism-test-default}
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPO=${GITHUB_REPO}
+      - TASK_ID=${TASK_ID}
+      - GIT_BRANCH=${GIT_BRANCH}
+      - FLUX_WEBHOOK_URL=${FLUX_WEBHOOK_URL:-}
+    ports:
+      - "7681"  # Web terminal - puerto dinámico
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - prism-test-cache:/root/.cache
+      - prism-uv-cache:/root/.local/share/uv
+    networks:
+      - prism-test-network
+    labels:
+      - "prism.test.task=${TASK_ID}"
+      - "prism.test.branch=${GIT_BRANCH}"
+      - "prism.test.status=creating"
+    # Recursos limitados
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    # No auto-restart - queremos control manual
+    restart: "no"
+
+volumes:
+  prism-test-cache:
+    driver: local
+  prism-uv-cache:
+    driver: local
+
+networks:
+  prism-test-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
