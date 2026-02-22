@@ -1,7 +1,21 @@
+from __future__ import annotations
+
+import os
+import signal
+import subprocess
+import sys
+from pathlib import Path
+
 import click
+from rich.console import Console
 
+from prism.config import load_global_config
+from prism.project import check_docker
 
-_FASE = "Fase 2"
+console = Console()
+
+_PID_FILE = ".prism/listener.pid"
+_LOG_FILE = Path.home() / ".prism" / "listener.log"
 
 
 @click.group(name="board")
@@ -10,26 +24,145 @@ def board() -> None:
 
 
 @board.command(name="setup")
-def setup() -> None:
-    """Launch Flux via Docker and register MCP. (Available in Fase 2)"""
-    raise click.ClickException(f"Not implemented yet ({_FASE})")
+@click.option("--project-id", default="", help="Flux project ID (creates one if empty)")
+@click.option("--project-dir", default=".", type=click.Path())
+def setup(project_id: str, project_dir: str) -> None:
+    """Launch Flux via Docker, register MCP, and configure project."""
+    if not check_docker():
+        raise click.ClickException("Docker is not installed or not running.")
+    _start_flux_container()
+    _register_mcp()
+    _configure_webhook(Path(project_dir).resolve())
+    console.print("[green]✅ Flux board ready at http://localhost:3000[/green]")
 
 
 @board.command(name="listen")
 @click.option("--daemon", is_flag=True, help="Run in background")
 @click.option("--port", default=8765, show_default=True)
-def listen(daemon: bool, port: int) -> None:
-    """Start webhook listener for Flux events. (Available in Fase 2)"""
-    raise click.ClickException(f"Not implemented yet ({_FASE})")
+@click.option("--project-dir", default=".", type=click.Path())
+def listen(daemon: bool, port: int, project_dir: str) -> None:
+    """Start webhook listener + file watcher for Flux events."""
+    proj_dir = Path(project_dir).resolve()
+    if daemon:
+        _start_daemon(port, proj_dir)
+    else:
+        _run_foreground(port, proj_dir)
 
 
 @board.command(name="stop")
-def stop() -> None:
-    """Stop the webhook listener process. (Available in Fase 2)"""
-    raise click.ClickException(f"Not implemented yet ({_FASE})")
+@click.option("--project-dir", default=".", type=click.Path())
+def stop(project_dir: str) -> None:
+    """Stop the webhook listener process."""
+    pid_file = Path(project_dir).resolve() / _PID_FILE
+    if not pid_file.exists():
+        raise click.ClickException("No listener PID file found. Is it running?")
+    pid = int(pid_file.read_text().strip())
+    try:
+        os.kill(pid, signal.SIGTERM)
+        pid_file.unlink()
+        console.print(f"[green]✅ Listener (PID {pid}) stopped[/green]")
+    except ProcessLookupError:
+        pid_file.unlink(missing_ok=True)
+        raise click.ClickException(f"Process {pid} not found — already stopped?")
 
 
 @board.command(name="status")
-def status() -> None:
-    """Show listener status and last event. (Available in Fase 2)"""
-    raise click.ClickException(f"Not implemented yet ({_FASE})")
+@click.option("--project-dir", default=".", type=click.Path())
+def status(project_dir: str) -> None:
+    """Show listener status and last event."""
+    pid_file = Path(project_dir).resolve() / _PID_FILE
+    if not pid_file.exists():
+        console.print("[yellow]Listener: not running[/yellow]")
+        return
+    pid = int(pid_file.read_text().strip())
+    running = _pid_alive(pid)
+    state = f"[green]running (PID {pid})[/green]" if running else "[red]dead (stale PID)[/red]"
+    console.print(f"Listener: {state}")
+    flux_url = load_global_config().flux.url
+    console.print(f"Webhook endpoint: {flux_url.replace('3000', '8765')}/webhook/flux")
+    if _LOG_FILE.exists():
+        console.print(f"Log: {_LOG_FILE}")
+
+
+def _start_flux_container() -> None:
+    cfg = load_global_config().flux
+    existing = subprocess.run(
+        ["docker", "inspect", "flux-web"], capture_output=True
+    ).returncode == 0
+    if existing:
+        console.print("[dim]Flux container already running[/dim]")
+        return
+    cmd = ["docker", "run", "-d", "-p", "3000:3000",
+           "-v", "flux-data:/app/packages/data", "--name", "flux-web",
+           "flux-mcp", "node", "packages/server/dist/index.js"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise click.ClickException(f"Failed to start Flux: {result.stderr}")
+    console.print("[green]✅ Flux container started[/green]")
+
+
+def _register_mcp() -> None:
+    cfg = load_global_config().flux
+    result = subprocess.run(
+        ["claude", "mcp", "add", "flux", "--", *cfg.mcp_command.split()],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        console.print(f"[yellow]⚠  MCP registration skipped: {result.stderr.strip()}[/yellow]")
+    else:
+        console.print("[green]✅ Flux MCP registered with Claude Code[/green]")
+
+
+def _configure_webhook(proj_dir: Path) -> None:
+    try:
+        from prism.board.flux_client import FluxClient
+        client = FluxClient()
+        if not client.healthy():
+            console.print("[yellow]⚠  Flux not reachable yet — register webhook manually[/yellow]")
+            return
+        client.add_webhook("http://localhost:8765/webhook/flux", ["task.status_changed"])
+        console.print("[green]✅ Webhook registered in Flux[/green]")
+    except Exception as exc:
+        console.print(f"[yellow]⚠  Webhook registration failed: {exc}[/yellow]")
+
+
+def _start_daemon(port: int, proj_dir: Path) -> None:
+    _LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    pid_file = proj_dir / _PID_FILE
+    pid_file.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [sys.argv[0], "board", "listen", "--port", str(port),
+           "--project-dir", str(proj_dir)]
+    with open(_LOG_FILE, "a") as lf:
+        proc = subprocess.Popen(cmd, stdout=lf, stderr=lf, start_new_session=True)
+    pid_file.write_text(str(proc.pid))
+    console.print(f"[green]✅ Listener started (PID: {proc.pid})[/green]")
+    console.print(f"   Logs  : {_LOG_FILE}")
+    console.print(f"   Stop  : prism board stop")
+
+
+def _run_foreground(port: int, proj_dir: Path) -> None:
+    import threading
+    import uvicorn
+    from prism.board.webhook_listener import app, set_project_dir
+    from prism.speckit.watcher import start_watcher
+
+    set_project_dir(proj_dir)
+    specs_dir = proj_dir / ".specify" / "specs"
+    watcher = start_watcher(specs_dir) if specs_dir.exists() else None
+
+    console.print(f"[bold green]PRISM listener[/bold green] on :{port} | project: {proj_dir.name}")
+    console.print("  Webhook : POST /webhook/flux")
+    console.print("  Press CTRL+C to stop\n")
+    try:
+        uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    finally:
+        if watcher:
+            watcher.stop()
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, PermissionError):
+        return False
