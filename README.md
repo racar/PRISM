@@ -83,6 +83,8 @@ prism augment
 prism sync --project-id <flux-project-id>
 ```
 
+For a complete walkthrough of setting up a new project, see **[Getting Started](docs/getting-started.md)**.
+
 ---
 
 ## End-to-End Workflow
