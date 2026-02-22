@@ -34,6 +34,7 @@ class MemoryConfig(BaseModel):
     global_path: str = "~/.prism/memory"
     git_remote: str = ""
     auto_commit: bool = True
+    embeddings_enabled: bool = False
 
 
 class FluxConfig(BaseModel):
