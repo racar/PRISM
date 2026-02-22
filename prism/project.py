@@ -35,24 +35,34 @@ def _speckit_env() -> dict[str, str]:
     return env
 
 
-def run_speckit_init(project_dir: Path) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["specify", "init", str(project_dir), "--ai", "claude"],
-        capture_output=True,
-        text=True,
-        env=_speckit_env(),
-        timeout=60,
+def _run_speckit(cmd: list[str], cwd: str | None = None) -> int:
+    try:
+        result = subprocess.run(
+            cmd,
+            env=_speckit_env(),
+            cwd=cwd,
+            timeout=120,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if result.returncode != 0 and result.stderr:
+            console.print(f"[dim]{result.stderr.strip()}[/dim]")
+        return result.returncode
+    except subprocess.TimeoutExpired:
+        console.print("[yellow]⚠️  specify timed out after 120s[/yellow]")
+        return 1
+
+
+def run_speckit_init(project_dir: Path) -> int:
+    return _run_speckit(
+        ["specify", "init", str(project_dir), "--ai", "claude", "--script", "sh"],
     )
 
 
-def run_speckit_here(project_dir: Path) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["specify", "init", ".", "--here", "--ai", "claude"],
-        capture_output=True,
-        text=True,
+def run_speckit_here(project_dir: Path) -> int:
+    return _run_speckit(
+        ["specify", "init", ".", "--here", "--ai", "claude", "--script", "sh"],
         cwd=str(project_dir),
-        env=_speckit_env(),
-        timeout=60,
     )
 
 
@@ -127,30 +137,27 @@ def has_existing_code(project_dir: Path) -> bool:
     return any(f.suffix in extensions for f in project_dir.rglob("*") if f.is_file())
 
 
-def _log_speckit_failure(result: subprocess.CompletedProcess) -> None:
-    stderr = result.stderr.strip()
-    if stderr:
-        console.print(f"[dim]{stderr}[/dim]")
-
-
 def _try_speckit_init(project_dir: Path) -> None:
     if not check_speckit():
         console.print("[yellow]⚠️  specify (Spec-Kit) not found — skipping[/yellow]")
+        return
+    if project_dir.exists():
+        console.print(
+            "[yellow]⚠️  Project directory already exists — skipping Spec-Kit init[/yellow]"
+        )
         return
     if not is_interactive_terminal():
         console.print(
             "[yellow]⚠️  Non-interactive terminal detected — skipping Spec-Kit (requires TTY)[/yellow]"
         )
         return
-    with console.status("[bold cyan]Initializing Spec-Kit…[/bold cyan]"):
-        result = run_speckit_init(project_dir)
-    if result.returncode == 0:
+    rc = run_speckit_init(project_dir)
+    if rc == 0:
         console.print("[green]✅ Spec-Kit initialized[/green]")
     else:
         console.print(
             "[yellow]⚠️  specify init failed — continuing without Spec-Kit[/yellow]"
         )
-        _log_speckit_failure(result)
 
 
 def _try_speckit_here(project_dir: Path) -> None:
@@ -162,13 +169,11 @@ def _try_speckit_here(project_dir: Path) -> None:
             "[yellow]⚠️  Non-interactive terminal — skipping Spec-Kit[/yellow]"
         )
         return
-    with console.status("[bold cyan]Initializing Spec-Kit…[/bold cyan]"):
-        result = run_speckit_here(project_dir)
-    if result.returncode == 0:
+    rc = run_speckit_here(project_dir)
+    if rc == 0:
         console.print("[green]✅ Spec-Kit initialized[/green]")
     else:
         console.print("[yellow]⚠️  specify init failed — continuing[/yellow]")
-        _log_speckit_failure(result)
 
 
 def _print_init_success(name: str, seed_count: int) -> None:
@@ -180,9 +185,9 @@ def _print_init_success(name: str, seed_count: int) -> None:
 
 def init_project(project_dir: Path, skip_speckit: bool = False) -> None:
     ensure_global_config()
-    project_dir.mkdir(parents=True, exist_ok=True)
     if not skip_speckit:
         _try_speckit_init(project_dir)
+    project_dir.mkdir(parents=True, exist_ok=True)
     prism_dir = create_prism_dir(project_dir)
     write_prism_files(prism_dir, project_dir.name)
     memory_dir = init_global_memory()
