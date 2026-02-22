@@ -17,6 +17,14 @@ tools:
     command: "gemini"
     context_file: "GEMINI.md"
     mcp_support: false
+  windsurf:
+    command: "windsurf"
+    context_file: ".windsurfrules"
+    mcp_support: false
+  copilot:
+    command: "code"
+    context_file: ".github/copilot-instructions.md"
+    mcp_support: false
 
 models:
   anthropic:
