@@ -3,27 +3,27 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 _ROLE_CAPABILITIES: dict[str, set[str]] = {
-    "architect":  {"file_read_write", "spec_kit_commands", "flux_mcp"},
-    "developer":  {"file_read_write", "bash_execution", "flux_mcp"},
-    "reviewer":   {"file_read_write", "flux_mcp"},
-    "memory":     {"file_read_write"},
-    "optimizer":  {"file_read_write"},
+    "architect": {"file_read_write", "flux_mcp"},
+    "developer": {"file_read_write", "bash_execution", "flux_mcp"},
+    "reviewer": {"file_read_write", "flux_mcp"},
+    "memory": {"file_read_write"},
+    "optimizer": {"file_read_write"},
 }
 
 _TOOL_CAPABILITIES: dict[str, set[str]] = {
-    "claude_code": {"file_read_write", "bash_execution", "flux_mcp", "spec_kit_commands"},
-    "opencode":    {"file_read_write", "bash_execution", "flux_mcp"},
-    "cursor":      {"file_read_write", "bash_execution"},
-    "gemini":      {"file_read_write", "bash_execution"},
-    "windsurf":    {"file_read_write", "bash_execution"},
-    "copilot":     {"file_read_write"},
+    "claude_code": {"file_read_write", "bash_execution", "flux_mcp"},
+    "opencode": {"file_read_write", "bash_execution", "flux_mcp"},
+    "cursor": {"file_read_write", "bash_execution"},
+    "gemini": {"file_read_write", "bash_execution"},
+    "windsurf": {"file_read_write", "bash_execution"},
+    "copilot": {"file_read_write"},
 }
 
 _BEST_TOOL_FOR_ROLE: dict[str, str] = {
     "architect": "claude_code",
     "developer": "opencode",
-    "reviewer":  "claude_code",
-    "memory":    "claude_code",
+    "reviewer": "claude_code",
+    "memory": "claude_code",
     "optimizer": "claude_code",
 }
 

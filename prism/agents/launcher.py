@@ -24,7 +24,6 @@ _TOOL_BINARY: dict[str, str] = {
 }
 
 _LAUNCH_SUFFIX: dict[str, str] = {
-    "claude_code": "--project .",
     "opencode":    ".",
     "cursor":      ".",
 }

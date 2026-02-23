@@ -211,10 +211,10 @@ def _run_foreground(port: int, proj_dir: Path) -> None:
     import threading
     import uvicorn
     from prism.board.webhook_listener import app, set_project_dir
-    from prism.speckit.watcher import start_watcher
+    from prism.spec.watcher import start_watcher
 
     set_project_dir(proj_dir)
-    specs_dir = proj_dir / ".specify" / "specs"
+    specs_dir = proj_dir / ".prism" / "spec"
     watcher = start_watcher(specs_dir) if specs_dir.exists() else None
 
     console.print(f"[bold green]PRISM listener[/bold green] on :{port} | project: {proj_dir.name}")
