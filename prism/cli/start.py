@@ -13,10 +13,16 @@ _ROLES = ["architect", "developer", "reviewer", "memory", "optimizer"]
 
 
 @click.command()
-@click.option("--role", required=True, type=click.Choice(_ROLES), help="Agent role to launch")
+@click.option(
+    "--role", required=True, type=click.Choice(_ROLES), help="Agent role to launch"
+)
 @click.option("--project-dir", default=".", type=click.Path(), show_default=True)
-@click.option("--no-launch", is_flag=True, help="Print the launch command but don't execute it")
-@click.option("--skip-inject", is_flag=True, help="Skip running prism inject before launch")
+@click.option(
+    "--no-launch", is_flag=True, help="Print the launch command but don't execute it"
+)
+@click.option(
+    "--skip-inject", is_flag=True, help="Skip running prism inject before launch"
+)
 def start(role: str, project_dir: str, no_launch: bool, skip_inject: bool) -> None:
     """Prepare context and launch an agent by role."""
     from prism.agents.launcher import LaunchResult, prepare_launch
@@ -32,10 +38,17 @@ def start(role: str, project_dir: str, no_launch: bool, skip_inject: bool) -> No
 
 
 def _print_checklist(result) -> None:
-    _check("Tool", f"{result.tool} ({result.tool} found)", not any("not installed" in w for w in result.warnings))
+    _check(
+        "Tool",
+        f"{result.tool} ({result.tool} found)",
+        not any("not installed" in w for w in result.warnings),
+    )
     _check("Model", result.model, True)
     _check("Flux", "connected", not any("Flux" in w for w in result.warnings))
-    _check("Listener", "running", not any("listener" in w.lower() for w in result.warnings))
+
+    listener_ok = not any("listener" in w.lower() for w in result.warnings)
+    _check("Listener", "running" if listener_ok else "not running", listener_ok)
+
     _check("Memory", f"{result.skill_count} skills injected", True)
     _check("Context", result.context_file, True)
     for w in result.warnings:
@@ -49,10 +62,14 @@ def _check(label: str, detail: str, ok: bool) -> None:
 
 
 def _print_launch_instructions(result, proj_dir: Path, no_launch: bool) -> None:
-    console.print(f"Launch your session with:\n  [bold cyan]{result.launch_command}[/bold cyan]\n")
+    console.print(
+        f"Launch your session with:\n  [bold cyan]{result.launch_command}[/bold cyan]\n"
+    )
     if no_launch:
         return
-    answer = click.prompt("Press Enter to launch automatically, or n to cancel", default="")
+    answer = click.prompt(
+        "Press Enter to launch automatically, or n to cancel", default=""
+    )
     if answer.strip().lower() != "n":
         _exec_tool(result.launch_command, proj_dir)
 
