@@ -27,9 +27,13 @@ def start(role: str, project_dir: str, no_launch: bool, skip_inject: bool) -> No
     """Prepare context and launch an agent by role."""
     from prism.agents.launcher import LaunchResult, prepare_launch
 
-    proj_dir = Path(project_dir).resolve()
+    proj_dir = Path(project_dir).absolute()
+    if not proj_dir.exists():
+        raise click.ClickException(f"Project directory does not exist: {proj_dir}")
     if not (proj_dir / ".prism").exists():
-        raise click.ClickException("No .prism/ found. Run: prism init or prism attach")
+        raise click.ClickException(
+            f"No .prism/ found in {proj_dir}. Run: prism init or prism attach"
+        )
 
     console.print(f"\n[bold]PRISM[/bold] — starting [cyan]{role}[/cyan] agent\n")
     result = prepare_launch(role, proj_dir, skip_inject=skip_inject)

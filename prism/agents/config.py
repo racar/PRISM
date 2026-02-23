@@ -29,9 +29,15 @@ def load_agents_config(project_dir: Path) -> ProjectAgentsConfig:
     path = project_dir / ".prism" / "AGENTS.md"
     if not path.exists():
         return ProjectAgentsConfig()
-    data = yaml.safe_load(path.read_text()) or {}
+    try:
+        data = yaml.safe_load(path.read_text()) or {}
+    except yaml.YAMLError:
+        # File exists but is not valid YAML (e.g., markdown instructions)
+        return ProjectAgentsConfig()
     agents_raw = data.get("agents", {})
-    agents = {role: AgentAssignment.model_validate(v) for role, v in agents_raw.items() if v}
+    agents = {
+        role: AgentAssignment.model_validate(v) for role, v in agents_raw.items() if v
+    }
     return ProjectAgentsConfig(
         project=data.get("project", ""),
         version=str(data.get("version", "1.0")),
