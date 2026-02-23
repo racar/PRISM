@@ -8,9 +8,9 @@ created: "{{ date }}"
 
 agents:
   architect:
-    tool: claude_code
-    model: anthropic.opus
-    reason: "Complex planning — needs full context window and strong reasoning"
+    tool: opencode
+    model: moonshot.kimi
+    reason: "Architecture and planning with Kimi K2"
     fallback:
       tool: claude_code
       model: anthropic.sonnet
@@ -24,13 +24,13 @@ agents:
       model: anthropic.sonnet
 
   reviewer:
-    tool: claude_code
-    model: anthropic.sonnet
+    tool: opencode
+    model: moonshot.kimi
 
   memory:
-    tool: claude_code
-    model: anthropic.haiku
+    tool: opencode
+    model: moonshot.kimi
 
   optimizer:
-    tool: claude_code
-    model: anthropic.haiku
+    tool: opencode
+    model: moonshot.kimi

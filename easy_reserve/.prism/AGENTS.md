@@ -1,6 +1,6 @@
 project: "easy_reserve"
 version: "1.0"
-created: "2026-02-22"
+created: "2026-02-23"
 
 # Agent team configuration for easy_reserve
 # Overrides ~/.prism/prism.config.yaml for this project.
@@ -10,7 +10,7 @@ agents:
   architect:
     tool: opencode
     model: moonshot.kimi
-    reason: "Complex planning — needs full context window and strong reasoning"
+    reason: "Architecture and planning with Kimi K2"
     fallback:
       tool: claude_code
       model: anthropic.sonnet
@@ -24,13 +24,13 @@ agents:
       model: anthropic.sonnet
 
   reviewer:
-    tool: claude_code
-    model: anthropic.sonnet
+    tool: opencode
+    model: moonshot.kimi
 
   memory:
-    tool: claude_code
-    model: anthropic.haiku
+    tool: opencode
+    model: moonshot.kimi
 
   optimizer:
-    tool: claude_code
-    model: anthropic.haiku
+    tool: opencode
+    model: moonshot.kimi

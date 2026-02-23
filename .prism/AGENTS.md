@@ -5,6 +5,9 @@ agents:
     tool: opencode
     model: moonshot.kimi
     reason: "Using opencode with Kimi K2.5 for architecture and planning"
+    fallback:
+      tool: claude_code
+      model: anthropic.sonnet
   developer:
     tool: opencode
     model: moonshot.kimi
@@ -33,6 +36,7 @@ All PRISM agents have **AUTOMATIC PERMISSION** to read files in this project. Yo
 - Documentation files (*.md, *.txt)
 - Style files (*.css, *.scss)
 - HTML files
+- Image files (*.png, *.jpg, *.jpeg, *.gif, *.svg, *.webp, *.ico)
 - PRISM configuration files (.prism/**/*)
 - Test files (tests/**/*, specs/**/*)
 
