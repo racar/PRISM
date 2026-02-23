@@ -5,7 +5,7 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from prism.speckit.augmenter import augment_tasks_md, find_latest_tasks_md, is_augmented
+from prism.spec.augmenter import augment_tasks_md, find_latest_tasks_md, is_augmented
 
 console = Console()
 
@@ -13,8 +13,8 @@ console = Console()
 @click.command()
 @click.option("--file", "-f", "file_path", type=click.Path(exists=True),
               help="Specific tasks.md to augment")
-@click.option("--specs-dir", default=".specify/specs", show_default=True,
-              type=click.Path(), help="Spec-Kit specs directory")
+@click.option("--specs-dir", default=".prism/spec", show_default=True,
+              type=click.Path(), help="PRISM Spec directory")
 @click.option("--force", is_flag=True, help="Re-augment even if already augmented")
 def augment(file_path: str | None, specs_dir: str, force: bool) -> None:
     """Augment tasks.md with PRISM context (skills, gotchas, decisions)."""

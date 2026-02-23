@@ -58,20 +58,18 @@ def _find_constitution(project_dir: Path) -> Optional[Path]:
 
     Priority:
     1. .prism/constitution.md (PRISM native)
-    2. .specify/memory/constitution.md (Spec-Kit compatibility)
+    2. .prism/spec/constitution.md (PRISM Spec)
 
     Returns:
         Path to constitution if found, None otherwise
     """
-    # Check PRISM native location
     prism_constitution = project_dir / ".prism" / "constitution.md"
     if prism_constitution.exists():
         return prism_constitution
 
-    # Check Spec-Kit location
-    specify_constitution = project_dir / ".specify" / "memory" / "constitution.md"
-    if specify_constitution.exists():
-        return specify_constitution
+    spec_constitution = project_dir / ".prism" / "spec" / "constitution.md"
+    if spec_constitution.exists():
+        return spec_constitution
 
     return None
 

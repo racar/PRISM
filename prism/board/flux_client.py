@@ -92,8 +92,9 @@ class FluxClient:
         return _to_epic(data, project_id)
 
     def create_task(self, project_id: str, title: str, body: str = "",
-                    epic_id: Optional[str] = None) -> Task:
-        payload: dict = {"title": title, "description": body, "status": "todo"}
+                    epic_id: Optional[str] = None,
+                    status: str = "planning") -> Task:
+        payload: dict = {"title": title, "description": body, "status": status}
         if epic_id:
             payload["epicId"] = epic_id
         data = _request("POST", f"/api/projects/{project_id}/tasks", json=payload)

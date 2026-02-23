@@ -83,7 +83,9 @@ async def _safe_dispatch(prev: str, curr: str, task: _TaskPayload) -> None:
 
 
 def _dispatch_transition(prev: str, curr: str, task: _TaskPayload) -> None:
-    if prev == "todo" and curr == "doing":
+    if prev == "planning" and curr == "todo":
+        log.info("[webhook] task %s approved by human → ready for developer", task.id)
+    elif prev == "todo" and curr == "doing":
         _on_task_started(task)
     elif curr == "done":
         _on_task_done(task)

@@ -147,7 +147,7 @@ def test_compatibility_copilot_architect_missing_caps():
     result = check_compatibility("architect", "copilot")
     assert result.compatible is False
     assert len(result.missing) > 0
-    assert "spec_kit_commands" in result.missing or "flux_mcp" in result.missing
+    assert "prism_spec_protocol" in result.missing or "flux_mcp" in result.missing
 
 
 def test_compatibility_missing_caps_have_warnings():

@@ -26,7 +26,7 @@ class _DebounceHandler:
 
     def _augment(self, path: Path) -> None:
         try:
-            from prism.speckit.augmenter import augment_tasks_md, is_augmented
+            from prism.spec.augmenter import augment_tasks_md, is_augmented
             output = path.with_name("tasks.prism.md")
             if is_augmented(output):
                 log.info("[FILE WATCHER] already augmented — skipping")

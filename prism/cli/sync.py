@@ -10,7 +10,7 @@ from rich.console import Console
 from prism.board.flux_client import FluxClient
 from prism.board.task_mapper import parse_tasks_md
 from prism.config import load_project_config
-from prism.speckit.augmenter import is_augmented
+from prism.spec.augmenter import is_augmented
 
 console = Console()
 
@@ -46,7 +46,7 @@ def sync(project_id: str, project_dir: str, dry_run: bool) -> None:
 
 
 def _resolve_tasks_file(proj_dir: Path) -> Path:
-    augmented = proj_dir / ".specify" / "specs" / "tasks.prism.md"
+    augmented = proj_dir / ".prism" / "spec" / "tasks.prism.md"
     if augmented.exists():
         return augmented
     latest = next(proj_dir.rglob("tasks.md"), None)

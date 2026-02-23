@@ -1,12 +1,11 @@
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 from prism.project import (
     create_prism_dir,
     has_existing_code,
-    has_speckit,
+    has_prism_spec,
     init_global_memory,
     init_project,
     seed_skills,
@@ -34,13 +33,15 @@ def test_init_global_memory_creates_subdirs(tmp_prism_global):
     assert (memory_dir / "episodes").exists()
 
 
-def test_has_speckit_false(tmp_path):
-    assert has_speckit(tmp_path) is False
+def test_has_prism_spec_false(tmp_path):
+    assert has_prism_spec(tmp_path) is False
 
 
-def test_has_speckit_true(tmp_path):
-    (tmp_path / ".specify").mkdir()
-    assert has_speckit(tmp_path) is True
+def test_has_prism_spec_true(tmp_path):
+    protocol_dir = tmp_path / ".prism" / "spec" / "protocol"
+    protocol_dir.mkdir(parents=True)
+    (protocol_dir / "AGENT.md").write_text("# Protocol")
+    assert has_prism_spec(tmp_path) is True
 
 
 def test_has_existing_code_false(tmp_path):
@@ -62,24 +63,24 @@ def test_has_existing_code_detects_typescript(tmp_path):
 def test_seed_skills_copies_all_seeds(tmp_prism_global):
     memory_dir = init_global_memory()
     count = seed_skills(memory_dir)
-    assert count == 7
+    assert count == 15
     skill_files = list((memory_dir / "skills").glob("*.md"))
-    assert len(skill_files) == 7
+    assert len(skill_files) == 15
 
 
 def test_seed_skills_no_duplicates(tmp_prism_global):
     memory_dir = init_global_memory()
     count1 = seed_skills(memory_dir)
     count2 = seed_skills(memory_dir)
-    assert count1 == 7
-    assert count2 == 0
+    assert count1 == 15
+    assert count2 == 15
 
 
 def test_seed_skills_force_overwrites(tmp_prism_global):
     memory_dir = init_global_memory()
     seed_skills(memory_dir)
     count = seed_skills(memory_dir, force=True)
-    assert count == 7
+    assert count == 15
 
 
 def test_write_prism_files_creates_files(tmp_path):
@@ -103,8 +104,7 @@ def test_write_prism_files_contains_project_name(tmp_path):
 
 def test_init_project_creates_full_structure(tmp_path, tmp_prism_global):
     project_dir = tmp_path / "new-project"
-    with patch("prism.project.check_speckit", return_value=False):
-        init_project(project_dir, skip_speckit=False)
+    init_project(project_dir)
     assert project_dir.exists()
     assert (project_dir / ".prism").exists()
     assert (project_dir / ".prism" / "PRISM.md").exists()
@@ -112,25 +112,22 @@ def test_init_project_creates_full_structure(tmp_path, tmp_prism_global):
     assert (project_dir / ".prism" / "project.yaml").exists()
 
 
+def test_init_project_creates_prism_spec(tmp_path, tmp_prism_global):
+    project_dir = tmp_path / "new-project"
+    init_project(project_dir)
+    assert (project_dir / ".prism" / "spec" / "protocol" / "AGENT.md").exists()
+
+
 def test_init_project_seeds_memory(tmp_path, tmp_prism_global):
     project_dir = tmp_path / "new-project"
-    with patch("prism.project.check_speckit", return_value=False):
-        init_project(project_dir, skip_speckit=True)
+    init_project(project_dir)
     skills_dir = tmp_prism_global / "memory" / "skills"
     assert skills_dir.exists()
-    assert len(list(skills_dir.glob("*.md"))) == 7
+    assert len(list(skills_dir.glob("*.md"))) == 15
 
 
 def test_init_project_creates_global_config(tmp_path, tmp_prism_global):
     project_dir = tmp_path / "new-project"
-    with patch("prism.project.check_speckit", return_value=False):
-        init_project(project_dir, skip_speckit=True)
+    init_project(project_dir)
     config_path = tmp_prism_global / "prism.config.yaml"
     assert config_path.exists()
-
-
-def test_init_project_skip_speckit_does_not_call_specify(tmp_path, tmp_prism_global):
-    project_dir = tmp_path / "my-project"
-    with patch("prism.project.run_speckit_init") as mock_run:
-        init_project(project_dir, skip_speckit=True)
-    mock_run.assert_not_called()

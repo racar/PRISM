@@ -160,7 +160,7 @@ def test_flux_healthy_false_when_down(flux_client):
 # ── 2.3 Augmenter ─────────────────────────────────────────────────────────────
 
 def test_augment_adds_prism_context(sample_tasks_md, tmp_path, mem_dir):
-    from prism.speckit.augmenter import augment_tasks_md, is_augmented
+    from prism.spec.augmenter import augment_tasks_md, is_augmented
     db = tmp_path / "index.db"
     fm = SkillFrontmatter(
         skill_id="jwt-auth", type="skill",
@@ -173,10 +173,10 @@ def test_augment_adds_prism_context(sample_tasks_md, tmp_path, mem_dir):
     with SkillStore(db) as store:
         store.upsert(skill)
 
-    with patch("prism.speckit.augmenter.GLOBAL_CONFIG_DIR", tmp_path):
-        with patch("prism.speckit.augmenter.load_global_config") as mock_cfg:
+    with patch("prism.spec.augmenter.GLOBAL_CONFIG_DIR", tmp_path):
+        with patch("prism.spec.augmenter.load_global_config") as mock_cfg:
             mock_cfg.return_value.memory.embeddings_enabled = False
-            with patch("prism.speckit.augmenter.SkillStore") as MockStore:
+            with patch("prism.spec.augmenter.SkillStore") as MockStore:
                 MockStore.return_value.__enter__.return_value.search.return_value = [
                     MagicMock(skill=skill)
                 ]
@@ -189,7 +189,7 @@ def test_augment_adds_prism_context(sample_tasks_md, tmp_path, mem_dir):
 
 
 def test_augment_skips_if_already_augmented(sample_tasks_md):
-    from prism.speckit.augmenter import augment_tasks_md, is_augmented
+    from prism.spec.augmenter import augment_tasks_md, is_augmented
     output = sample_tasks_md.with_name("tasks.prism.md")
     output.write_text("<!-- PRISM AUGMENTED -->\nsome content")
     result = augment_tasks_md(sample_tasks_md, force=False)
@@ -197,13 +197,13 @@ def test_augment_skips_if_already_augmented(sample_tasks_md):
 
 
 def test_augment_force_overwrites(sample_tasks_md, tmp_path, mem_dir):
-    from prism.speckit.augmenter import augment_tasks_md
+    from prism.spec.augmenter import augment_tasks_md
     output = sample_tasks_md.with_name("tasks.prism.md")
     output.write_text("<!-- PRISM AUGMENTED -->\nold content")
-    with patch("prism.speckit.augmenter.GLOBAL_CONFIG_DIR", tmp_path):
-        with patch("prism.speckit.augmenter.load_global_config") as mock_cfg:
+    with patch("prism.spec.augmenter.GLOBAL_CONFIG_DIR", tmp_path):
+        with patch("prism.spec.augmenter.load_global_config") as mock_cfg:
             mock_cfg.return_value.memory.embeddings_enabled = False
-            with patch("prism.speckit.augmenter.SkillStore") as MockStore:
+            with patch("prism.spec.augmenter.SkillStore") as MockStore:
                 MockStore.return_value.__enter__.return_value.search.return_value = []
                 result = augment_tasks_md(sample_tasks_md, force=True)
     assert "old content" not in result.read_text()
