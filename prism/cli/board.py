@@ -4,6 +4,7 @@ import os
 import signal
 import subprocess
 import sys
+import socket
 from pathlib import Path
 
 import click
@@ -40,6 +41,11 @@ def setup(project_id: str, project_dir: str) -> None:
     console.print("[green]✅ Flux board ready at http://localhost:9000[/green]")
 
 
+def _is_port_in_use(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
 @board.command(name="listen")
 @click.option("--daemon", is_flag=True, help="Run in background")
 @click.option("--port", default=8765, show_default=True)
@@ -47,6 +53,25 @@ def setup(project_id: str, project_dir: str) -> None:
 def listen(daemon: bool, port: int, project_dir: str) -> None:
     """Start webhook listener + file watcher for Flux events."""
     proj_dir = Path(project_dir).resolve()
+
+    pid_file = proj_dir / _PID_FILE
+    if pid_file.exists():
+        try:
+            pid = int(pid_file.read_text().strip())
+            if _pid_alive(pid):
+                console.print(
+                    f"[yellow]Listener is already running (PID: {pid})[/yellow]"
+                )
+                return
+        except ValueError:
+            pass  # invalid pid file
+
+    if _is_port_in_use(port):
+        console.print(
+            f"[yellow]⚠ Port {port} is already in use. Is another listener running?[/yellow]"
+        )
+        return
+
     if daemon:
         _start_daemon(port, proj_dir)
     else:
@@ -80,7 +105,11 @@ def status(project_dir: str) -> None:
         return
     pid = int(pid_file.read_text().strip())
     running = _pid_alive(pid)
-    state = f"[green]running (PID {pid})[/green]" if running else "[red]dead (stale PID)[/red]"
+    state = (
+        f"[green]running (PID {pid})[/green]"
+        if running
+        else "[red]dead (stale PID)[/red]"
+    )
     console.print(f"Listener: {state}")
     flux_url = load_global_config().flux.url
     console.print(f"Webhook endpoint: {flux_url.replace('9000', '8765')}/webhook/flux")
@@ -96,9 +125,12 @@ def _ensure_flux_project(proj_dir: Path, project_id: str) -> None:
     existing = cfg.flux.url
     proj_cfg_path = proj_dir / ".prism" / "project.yaml"
     if proj_cfg_path.exists():
-        data = yaml.safe_load(
-            proj_cfg_path.read_text(encoding="utf-8"),
-        ) or {}
+        data = (
+            yaml.safe_load(
+                proj_cfg_path.read_text(encoding="utf-8"),
+            )
+            or {}
+        )
         if data.get("flux_project_id"):
             return
     name = proj_dir.name
@@ -107,9 +139,12 @@ def _ensure_flux_project(proj_dir: Path, project_id: str) -> None:
 
 def _create_and_save_project(proj_dir: Path, name: str) -> None:
     from prism.board.flux_client import FluxClient
+
     client = FluxClient()
     if not client.healthy():
-        console.print("[yellow]⚠  Flux not reachable — skipping project creation[/yellow]")
+        console.print(
+            "[yellow]⚠  Flux not reachable — skipping project creation[/yellow]"
+        )
         return
     result = client.create_project(name)
     pid = result.get("id", "")
@@ -127,7 +162,8 @@ def _save_flux_project_id(proj_dir: Path, project_id: str) -> None:
     ) or {}
     data["flux_project_id"] = project_id
     yaml_path.write_text(
-        yaml.dump(data, default_flow_style=False), encoding="utf-8",
+        yaml.dump(data, default_flow_style=False),
+        encoding="utf-8",
     )
 
 
@@ -140,16 +176,29 @@ def _validate_docker_image(image: str) -> bool:
 
 
 def _flux_container_exists() -> bool:
-    return subprocess.run(
-        ["docker", "inspect", "flux-web"], capture_output=True,
-    ).returncode == 0
+    return (
+        subprocess.run(
+            ["docker", "inspect", "flux-web"],
+            capture_output=True,
+        ).returncode
+        == 0
+    )
 
 
 def _run_flux_container() -> None:
     cmd = [
-        "docker", "run", "-d", "-p", "9000:3000",
-        "-v", "flux-data:/app/packages/data", "--name", "flux-web",
-        "flux-mcp", "node", "packages/server/dist/index.js",
+        "docker",
+        "run",
+        "-d",
+        "-p",
+        "9000:3000",
+        "-v",
+        "flux-data:/app/packages/data",
+        "--name",
+        "flux-web",
+        "flux-mcp",
+        "node",
+        "packages/server/dist/index.js",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
@@ -172,10 +221,13 @@ def _register_mcp() -> None:
     cfg = load_global_config().flux
     result = subprocess.run(
         ["claude", "mcp", "add", "flux", "--", *cfg.mcp_command.split()],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if result.returncode != 0:
-        console.print(f"[yellow]⚠  MCP registration skipped: {result.stderr.strip()}[/yellow]")
+        console.print(
+            f"[yellow]⚠  MCP registration skipped: {result.stderr.strip()}[/yellow]"
+        )
     else:
         console.print("[green]✅ Flux MCP registered with Claude Code[/green]")
 
@@ -183,11 +235,16 @@ def _register_mcp() -> None:
 def _configure_webhook(proj_dir: Path) -> None:
     try:
         from prism.board.flux_client import FluxClient
+
         client = FluxClient()
         if not client.healthy():
-            console.print("[yellow]⚠  Flux not reachable yet — register webhook manually[/yellow]")
+            console.print(
+                "[yellow]⚠  Flux not reachable yet — register webhook manually[/yellow]"
+            )
             return
-        client.add_webhook("http://localhost:8765/webhook/flux", ["task.status_changed"])
+        client.add_webhook(
+            "http://localhost:8765/webhook/flux", ["task.status_changed"]
+        )
         console.print("[green]✅ Webhook registered in Flux[/green]")
     except Exception as exc:
         console.print(f"[yellow]⚠  Webhook registration failed: {exc}[/yellow]")
@@ -197,8 +254,15 @@ def _start_daemon(port: int, proj_dir: Path) -> None:
     _LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     pid_file = proj_dir / _PID_FILE
     pid_file.parent.mkdir(parents=True, exist_ok=True)
-    cmd = [sys.argv[0], "board", "listen", "--port", str(port),
-           "--project-dir", str(proj_dir)]
+    cmd = [
+        sys.argv[0],
+        "board",
+        "listen",
+        "--port",
+        str(port),
+        "--project-dir",
+        str(proj_dir),
+    ]
     with open(_LOG_FILE, "a") as lf:
         proc = subprocess.Popen(cmd, stdout=lf, stderr=lf, start_new_session=True)
     pid_file.write_text(str(proc.pid))
@@ -217,7 +281,9 @@ def _run_foreground(port: int, proj_dir: Path) -> None:
     specs_dir = proj_dir / ".prism" / "spec"
     watcher = start_watcher(specs_dir) if specs_dir.exists() else None
 
-    console.print(f"[bold green]PRISM listener[/bold green] on :{port} | project: {proj_dir.name}")
+    console.print(
+        f"[bold green]PRISM listener[/bold green] on :{port} | project: {proj_dir.name}"
+    )
     console.print("  Webhook : POST /webhook/flux")
     console.print("  Press CTRL+C to stop\n")
     try:
